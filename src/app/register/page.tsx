@@ -4,11 +4,13 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import Link from "next/link"
 
-export default function RegisterPage({
+export default async function RegisterPage({
   searchParams,
 }: {
-  searchParams: { error?: string }
+  searchParams: Promise<{ error?: string }>
 }) {
+  const resolvedParams = await searchParams
+  
   return (
     <div className="flex min-h-screen items-center justify-center bg-[#0a0a0a] relative overflow-hidden">
       {/* Background Glow Effects */}
@@ -26,9 +28,9 @@ export default function RegisterPage({
           </p>
         </div>
 
-        {searchParams.error && (
+        {resolvedParams.error && (
           <div className="mb-6 p-4 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm text-center">
-            {searchParams.error}
+            {resolvedParams.error}
           </div>
         )}
 

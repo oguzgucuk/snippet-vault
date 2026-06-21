@@ -110,8 +110,8 @@ export function AddSnippetModal() {
                 </Label>
               </div>
               
-              <Button type="submit" className="w-full glow-primary">
-                Save Snippet
+              <Button type="submit" disabled={isSubmitting} className="w-full glow-primary">
+                {isSubmitting ? "Saving..." : "Save Snippet"}
               </Button>
             </div>
           </div>

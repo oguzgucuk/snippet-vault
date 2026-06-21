@@ -2,7 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
-import { generateTags } from "@/lib/ai/gemini"
+import { generateTags, generateEmbedding } from "@/lib/ai/gemini"
 
 export async function createSnippet(formData: FormData) {
   const supabase = await createClient()
@@ -33,6 +33,10 @@ export async function createSnippet(formData: FormData) {
     tags = Array.from(new Set([...tags, ...aiTags]))
   }
 
+  // Generate embedding for semantic search
+  const textToEmbed = `Title: ${title}\nLanguage: ${language}\nTags: ${tags.join(", ")}\n\nCode:\n${code}`
+  const embedding = await generateEmbedding(textToEmbed)
+
   const { error } = await supabase
     .from("snippets")
     .insert({
@@ -41,6 +45,7 @@ export async function createSnippet(formData: FormData) {
       code,
       language,
       tags,
+      embedding,
     })
 
   if (error) {
@@ -87,6 +92,10 @@ export async function updateSnippet(id: string, formData: FormData) {
     tags = tagsString.split(",").map(t => t.trim()).filter(Boolean)
   }
 
+  // Generate new embedding
+  const textToEmbed = `Title: ${title}\nLanguage: ${language}\nTags: ${tags.join(", ")}\n\nCode:\n${code}`
+  const embedding = await generateEmbedding(textToEmbed)
+
   const { error } = await supabase
     .from("snippets")
     .update({
@@ -94,6 +103,7 @@ export async function updateSnippet(id: string, formData: FormData) {
       code,
       language,
       tags,
+      embedding,
       updated_at: new Date().toISOString(),
     })
     .eq("id", id)
@@ -118,4 +128,33 @@ export async function toggleFavoriteSnippet(id: string, isFavorite: boolean) {
   }
 
   revalidatePath("/dashboard")
+}
+
+export async function searchSemanticSnippets(query: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (!user) {
+    throw new Error("Unauthorized")
+  }
+
+  // Generate embedding for the search query
+  const queryEmbedding = await generateEmbedding(query)
+  if (!queryEmbedding) {
+    throw new Error("Failed to generate embedding for query")
+  }
+
+  // Call the match_snippets RPC function we created in Supabase
+  const { data, error } = await supabase.rpc("match_snippets", {
+    query_embedding: queryEmbedding,
+    match_threshold: 0.1, // Lower threshold to find more results
+    match_count: 5 // Return top 5 best matches
+  })
+
+  if (error) {
+    console.error("Semantic search error:", error)
+    throw new Error("Failed to perform semantic search")
+  }
+
+  return data
 }

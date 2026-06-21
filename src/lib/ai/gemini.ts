@@ -33,3 +33,24 @@ ${code}`
     return []
   }
 }
+
+export async function generateEmbedding(text: string): Promise<number[] | null> {
+  try {
+    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY })
+    
+    // We use the new embedding model and limit to 768 dimensions to match our Supabase schema
+    const response = await ai.models.embedContent({
+      model: "gemini-embedding-2",
+      contents: text,
+      config: { outputDimensionality: 768 }
+    })
+
+    if (response.embeddings && response.embeddings.length > 0) {
+      return response.embeddings[0].values || null
+    }
+    return null
+  } catch (error) {
+    console.error("AI Embedding Error:", error)
+    return null
+  }
+}
