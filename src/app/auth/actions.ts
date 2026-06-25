@@ -22,8 +22,7 @@ export async function signUp(prevState: any, formData: FormData) {
   })
 
   if (!validatedFields.success) {
-    const errorMsg = validatedFields.error.errors.map(e => e.message).join(", ")
-    return { error: errorMsg }
+    return { error: validatedFields.error.message }
   }
 
   const { email, password } = validatedFields.data
@@ -49,8 +48,7 @@ export async function signIn(prevState: any, formData: FormData) {
   })
 
   if (!validatedFields.success) {
-    const errorMsg = validatedFields.error.errors.map(e => e.message).join(", ")
-    return { error: errorMsg }
+    return { error: validatedFields.error.message }
   }
 
   const { email, password } = validatedFields.data

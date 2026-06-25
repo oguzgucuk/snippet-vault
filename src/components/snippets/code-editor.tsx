@@ -22,9 +22,10 @@ interface CodeEditorProps {
   onChange: (val: string) => void
   language: string
   name?: string
+  placeholder?: string
 }
 
-export function CodeEditor({ value, onChange, language, name }: CodeEditorProps) {
+export function CodeEditor({ value, onChange, language, name, placeholder }: CodeEditorProps) {
   // Map our simple language names to Prism grammar names
   const getGrammar = (lang: string) => {
     switch (lang.toLowerCase()) {
@@ -62,6 +63,7 @@ export function CodeEditor({ value, onChange, language, name }: CodeEditorProps)
         highlight={highlight}
         padding={16}
         textareaClassName="focus:outline-none"
+        placeholder={placeholder}
         className="font-mono text-sm min-h-full"
         style={{
           fontFamily: "var(--font-mono)",

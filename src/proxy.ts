@@ -5,7 +5,7 @@ import { NextResponse, type NextRequest } from "next/server"
  * Middleware: Her istekte kullanıcı oturumunu kontrol eder.
  * Giriş yapmamış kullanıcıları /login sayfasına yönlendirir.
  */
-export async function middleware(request: NextRequest) {
+export default async function proxy(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request })
 
   const supabase = createServerClient(

@@ -11,7 +11,7 @@ const snippetSchema = z.object({
   code: z.string().min(1, "Code is required").max(10000, "Code is too long"),
   language: z.enum([
     "typescript", "javascript", "react", "python", "css", "html", "sql", "bash"
-  ], { errorMap: () => ({ message: "Unsupported language" }) }),
+  ], { message: "Unsupported language" }),
   tags: z.string().optional(),
 })
 
