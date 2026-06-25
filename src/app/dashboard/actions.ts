@@ -194,8 +194,8 @@ export async function searchSemanticSnippets(query: string) {
 
   const { data, error } = await supabase.rpc("match_snippets", {
     query_embedding: queryEmbedding,
-    match_threshold: 0.1,
-    match_count: 5
+    match_threshold: 0.5,
+    match_count: 10
   })
 
   if (error) {
