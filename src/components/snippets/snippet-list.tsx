@@ -1,7 +1,7 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { Search, Sparkles, Loader2 } from "lucide-react"
+import { useState } from "react"
+import { Search, Sparkles, Loader2, Heart, AlignLeft } from "lucide-react"
 import { AddSnippetModal } from "@/components/snippets/add-snippet-modal"
 import { SnippetCard } from "@/components/snippets/snippet-card"
 import { searchSemanticSnippets } from "@/app/dashboard/actions"
@@ -15,17 +15,13 @@ interface Snippet {
   is_favorite?: boolean
 }
 
+type TabType = "all" | "favorites"
+
 export function SnippetList({ initialSnippets }: { initialSnippets: Snippet[] }) {
   const [searchQuery, setSearchQuery] = useState("")
   const [semanticResults, setSemanticResults] = useState<Snippet[] | null>(null)
   const [isSearching, setIsSearching] = useState(false)
-
-  // Clear semantic results if user changes the search query to revert to fast local search
-  useEffect(() => {
-    if (semanticResults !== null) {
-      setSemanticResults(null)
-    }
-  }, [searchQuery])
+  const [activeTab, setActiveTab] = useState<TabType>("all")
 
   const handleSemanticSearch = async () => {
     if (!searchQuery.trim()) return
@@ -33,10 +29,7 @@ export function SnippetList({ initialSnippets }: { initialSnippets: Snippet[] })
     setIsSearching(true)
     try {
       const results = await searchSemanticSnippets(searchQuery)
-      // The RPC returns { id, title, code, language, tags, similarity }
-      // We map it to our Snippet interface. Note: it doesn't return is_favorite directly unless we update the RPC, 
-      // but we can just use the initialSnippets to merge the is_favorite state.
-      const mappedResults = (results || []).map((res: any) => {
+      const mappedResults = (results || []).map((res: Record<string, unknown>) => {
         const original = initialSnippets.find(s => s.id === res.id)
         return {
           ...res,
@@ -46,16 +39,23 @@ export function SnippetList({ initialSnippets }: { initialSnippets: Snippet[] })
       setSemanticResults(mappedResults)
     } catch (error) {
       console.error(error)
-      // Optionally show a toast error here
     } finally {
       setIsSearching(false)
     }
   }
 
   // Determine which snippets to show
-  const displaySnippets = semanticResults !== null 
-    ? semanticResults 
-    : initialSnippets.filter(snippet => {
+  let baseSnippets = semanticResults !== null ? semanticResults : initialSnippets
+
+  // Filter by tab
+  if (activeTab === "favorites") {
+    baseSnippets = baseSnippets.filter(s => s.is_favorite)
+  }
+
+  // Filter by query if not using semantic search
+  const displaySnippets = semanticResults !== null
+    ? baseSnippets
+    : baseSnippets.filter(snippet => {
         const query = searchQuery.toLowerCase()
         const matchTitle = snippet.title.toLowerCase().includes(query)
         const matchLanguage = snippet.language.toLowerCase().includes(query)
@@ -66,15 +66,43 @@ export function SnippetList({ initialSnippets }: { initialSnippets: Snippet[] })
   return (
     <>
       {/* Top Bar */}
-      <div className="flex items-center justify-between mb-8 gap-4">
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-8 gap-4">
+        
+        {/* Tabs */}
+        <div className="flex bg-white/5 p-1 rounded-lg border border-white/10 w-full md:w-auto">
+          <button
+            onClick={() => setActiveTab("all")}
+            className={`flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+              activeTab === "all" ? "bg-white/10 text-white shadow-sm" : "text-gray-400 hover:text-white hover:bg-white/5"
+            }`}
+          >
+            <AlignLeft className="w-4 h-4" />
+            All
+          </button>
+          <button
+            onClick={() => setActiveTab("favorites")}
+            className={`flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+              activeTab === "favorites" ? "bg-white/10 text-white shadow-sm" : "text-gray-400 hover:text-white hover:bg-white/5"
+            }`}
+          >
+            <Heart className="w-4 h-4" fill={activeTab === "favorites" ? "currentColor" : "none"} />
+            Favorites
+          </button>
+        </div>
+
         {/* Search */}
-        <div className="flex-1 max-w-xl relative">
+        <div className="flex-1 w-full max-w-xl relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
           <input
             type="text"
             placeholder="Search snippets, tags, or ask AI..."
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => {
+              setSearchQuery(e.target.value)
+              if (semanticResults !== null) {
+                setSemanticResults(null)
+              }
+            }}
             onKeyDown={(e) => {
               if (e.key === "Enter" && searchQuery.trim()) {
                 handleSemanticSearch()
@@ -102,16 +130,18 @@ export function SnippetList({ initialSnippets }: { initialSnippets: Snippet[] })
           <div className="text-6xl mb-4">🗄️</div>
           <h2 className="text-xl font-semibold text-white mb-2">Vault is empty</h2>
           <p className="text-center max-w-md">
-            You haven't added any snippets yet. Click the "Add Snippet" button above to store your first piece of code.
+            You haven&apos;t added any snippets yet. Click the &quot;Add Snippet&quot; button above to store your first piece of code.
           </p>
         </div>
       ) : displaySnippets.length === 0 ? (
         <div className="flex-1 flex flex-col items-center justify-center text-gray-500 border-2 border-dashed border-white/10 rounded-2xl p-12">
           <h2 className="text-xl font-semibold text-white mb-2">No snippets found</h2>
           <p className="text-center max-w-md">
-            {semanticResults !== null 
-              ? `AI couldn't find any snippets related to: "${searchQuery}"`
-              : `No snippets match your search query: "${searchQuery}"`
+            {activeTab === "favorites" && initialSnippets.filter(s => s.is_favorite).length === 0 
+              ? "You haven't favorited any snippets yet."
+              : semanticResults !== null 
+                ? `AI couldn't find any snippets related to: "${searchQuery}"`
+                : `No snippets match your search query: "${searchQuery}"`
             }
           </p>
         </div>

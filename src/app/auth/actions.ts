@@ -3,21 +3,34 @@
 import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
+import { z } from "zod"
+
+const authSchema = z.object({
+  email: z.string().email("Please enter a valid email address"),
+  password: z.string().min(6, "Password must be at least 6 characters long"),
+})
 
 /**
  * Kayıt ol
- * Kullanıcı kayıt formunu gönderdiğinde bu fonksiyon çalışır.
  */
-export async function signUp(formData: FormData) {
+export async function signUp(prevState: any, formData: FormData) {
   const supabase = await createClient()
 
-  const email = formData.get("email") as string
-  const password = formData.get("password") as string
+  const validatedFields = authSchema.safeParse({
+    email: formData.get("email"),
+    password: formData.get("password"),
+  })
 
+  if (!validatedFields.success) {
+    const errorMsg = validatedFields.error.errors.map(e => e.message).join(", ")
+    return { error: errorMsg }
+  }
+
+  const { email, password } = validatedFields.data
   const { error } = await supabase.auth.signUp({ email, password })
 
   if (error) {
-    redirect("/register?error=" + encodeURIComponent(error.message))
+    return { error: error.message }
   }
 
   revalidatePath("/", "layout")
@@ -26,18 +39,25 @@ export async function signUp(formData: FormData) {
 
 /**
  * Giriş yap
- * Kullanıcı giriş formunu gönderdiğinde bu fonksiyon çalışır.
  */
-export async function signIn(formData: FormData) {
+export async function signIn(prevState: any, formData: FormData) {
   const supabase = await createClient()
 
-  const email = formData.get("email") as string
-  const password = formData.get("password") as string
+  const validatedFields = authSchema.safeParse({
+    email: formData.get("email"),
+    password: formData.get("password"),
+  })
 
+  if (!validatedFields.success) {
+    const errorMsg = validatedFields.error.errors.map(e => e.message).join(", ")
+    return { error: errorMsg }
+  }
+
+  const { email, password } = validatedFields.data
   const { error } = await supabase.auth.signInWithPassword({ email, password })
 
   if (error) {
-    redirect("/login?error=" + encodeURIComponent(error.message))
+    return { error: error.message }
   }
 
   revalidatePath("/", "layout")

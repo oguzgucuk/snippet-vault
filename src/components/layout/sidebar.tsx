@@ -22,32 +22,10 @@ export function Sidebar() {
           <Code2 className="w-5 h-5 mr-3" />
           All Snippets
         </Link>
-        <Link
-          href="/dashboard/favorites"
-          className="flex items-center px-3 py-2.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 transition-colors"
-        >
-          <Heart className="w-5 h-5 mr-3" />
-          Favorites
-        </Link>
-        <Link
-          href="/dashboard/tags"
-          className="flex items-center px-3 py-2.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 transition-colors"
-        >
-          <Tag className="w-5 h-5 mr-3" />
-          Tags
-        </Link>
       </nav>
 
       {/* Bottom Actions */}
       <div className="p-4 border-t border-white/5 space-y-2">
-        <Link
-          href="/dashboard/settings"
-          className="flex items-center px-3 py-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 transition-colors text-sm"
-        >
-          <Settings className="w-4 h-4 mr-3" />
-          Settings
-        </Link>
-        
         {/* Logout Form using Server Action */}
         <form action={signOut}>
           <button

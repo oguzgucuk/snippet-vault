@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -21,27 +21,35 @@ interface EditSnippetModalProps {
   onOpenChange: (open: boolean) => void
 }
 
+import { toast } from "sonner"
+
 export function EditSnippetModal({ snippet, open, onOpenChange }: EditSnippetModalProps) {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [code, setCode] = useState(snippet.code)
   const [language, setLanguage] = useState(snippet.language)
+  const [prevSnippet, setPrevSnippet] = useState(snippet)
 
-  // Update state if snippet changes
-  useEffect(() => {
+  if (snippet.code !== prevSnippet.code || snippet.language !== prevSnippet.language) {
+    setPrevSnippet(snippet)
     setCode(snippet.code)
     setLanguage(snippet.language)
-  }, [snippet])
+  }
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     setIsSubmitting(true)
-    try {
-      const formData = new FormData(e.currentTarget)
-      await updateSnippet(snippet.id, formData)
-      onOpenChange(false)
-    } finally {
-      setIsSubmitting(false)
-    }
+    
+    const formData = new FormData(e.currentTarget)
+    
+    toast.promise(updateSnippet(snippet.id, formData), {
+      loading: "Updating snippet...",
+      success: () => {
+        onOpenChange(false)
+        return "Snippet updated successfully!"
+      },
+      error: (err: any) => err.message || "Failed to update snippet",
+      finally: () => setIsSubmitting(false)
+    })
   }
 
   return (

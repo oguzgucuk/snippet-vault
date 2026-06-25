@@ -1,15 +1,15 @@
+"use client"
+
+import { useActionState } from "react"
 import { signIn } from "@/app/auth/actions"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import Link from "next/link"
+import { Loader2 } from "lucide-react"
 
-export default async function LoginPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ error?: string }>
-}) {
-  const resolvedParams = await searchParams
+export default function LoginPage() {
+  const [state, formAction, isPending] = useActionState(signIn, null)
   
   return (
     <div className="flex min-h-screen items-center justify-center bg-[#0a0a0a] relative overflow-hidden">
@@ -28,13 +28,13 @@ export default async function LoginPage({
           </p>
         </div>
 
-        {resolvedParams.error && (
+        {state?.error && (
           <div className="mb-6 p-4 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm text-center">
-            {resolvedParams.error}
+            {state.error}
           </div>
         )}
 
-        <form action={signIn} className="space-y-5">
+        <form action={formAction} className="space-y-5">
           <div className="space-y-2">
             <Label htmlFor="email" className="text-gray-300">
               Email
@@ -45,6 +45,7 @@ export default async function LoginPage({
               type="email"
               placeholder="developer@example.com"
               required
+              disabled={isPending}
               className="bg-[#0a0a0a]/50 border-gray-800 focus-visible:ring-primary/50 text-white placeholder:text-gray-600 font-mono"
             />
           </div>
@@ -66,15 +67,17 @@ export default async function LoginPage({
               name="password"
               type="password"
               required
+              disabled={isPending}
               className="bg-[#0a0a0a]/50 border-gray-800 focus-visible:ring-primary/50 text-white placeholder:text-gray-600 font-mono"
             />
           </div>
 
           <Button
             type="submit"
+            disabled={isPending}
             className="w-full h-11 glow-primary text-base font-semibold transition-all mt-4"
           >
-            Sign In
+            {isPending ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Signing in...</> : "Sign In"}
           </Button>
         </form>
 

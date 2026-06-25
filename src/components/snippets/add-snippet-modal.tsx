@@ -11,6 +11,8 @@ import { Plus } from "lucide-react"
 import { createSnippet } from "@/app/dashboard/actions"
 import { CodeEditor } from "@/components/snippets/code-editor"
 
+import { toast } from "sonner"
+
 export function AddSnippetModal() {
   const [open, setOpen] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -20,16 +22,23 @@ export function AddSnippetModal() {
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     setIsSubmitting(true)
-    try {
-      const formData = new FormData(e.currentTarget)
-      await createSnippet(formData)
-      setOpen(false)
-      // Reset form
-      setCode("")
-      setLanguage("typescript")
-    } finally {
-      setIsSubmitting(false)
-    }
+    
+    // We will use toast.promise for a beautiful loading state
+    const formData = new FormData(e.currentTarget)
+    
+    toast.promise(createSnippet(formData), {
+      loading: "Saving snippet to Vault...",
+      success: () => {
+        setOpen(false)
+        setCode("")
+        setLanguage("typescript")
+        return "Snippet saved successfully!"
+      },
+      error: (err: any) => {
+        return err.message || "Failed to save snippet"
+      },
+      finally: () => setIsSubmitting(false)
+    })
   }
 
   return (

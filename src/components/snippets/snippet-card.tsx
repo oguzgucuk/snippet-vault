@@ -4,6 +4,7 @@ import { useState } from "react"
 import { Copy, Edit2, Trash2, Check, Heart } from "lucide-react"
 import { deleteSnippet, toggleFavoriteSnippet } from "@/app/dashboard/actions"
 import { EditSnippetModal } from "@/components/snippets/edit-snippet-modal"
+import { toast } from "sonner"
 import Prism from "prismjs"
 import "prismjs/components/prism-typescript"
 import "prismjs/components/prism-javascript"
@@ -39,6 +40,7 @@ export function SnippetCard({ snippet }: { snippet: Snippet }) {
   const [copied, setCopied] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const [editModalOpen, setEditModalOpen] = useState(false)
+  const [isAlertOpen, setIsAlertOpen] = useState(false)
   const [isFavorite, setIsFavorite] = useState(snippet.is_favorite || false)
 
   const handleCopy = async () => {
@@ -47,24 +49,33 @@ export function SnippetCard({ snippet }: { snippet: Snippet }) {
     setTimeout(() => setCopied(false), 2000)
   }
 
-  const handleDelete = async () => {
+  const handleDelete = async (e: React.MouseEvent) => {
+    e.preventDefault() // Animasyon sırasında kapanmayı beklerken spamı engeller
+    if (isDeleting) return
     setIsDeleting(true)
-    try {
-      await deleteSnippet(snippet.id)
-    } catch (error) {
-      console.error("Failed to delete", error)
-      setIsDeleting(false)
-    }
+    setIsAlertOpen(false) // Modal'ı anında kapatır
+    
+    toast.promise(deleteSnippet(snippet.id), {
+      loading: "Deleting snippet...",
+      success: "Snippet deleted permanently",
+      error: "Failed to delete snippet",
+      finally: () => setIsDeleting(false)
+    })
   }
 
   const handleToggleFavorite = async () => {
     const newState = !isFavorite
     setIsFavorite(newState) // Optimistic update
+    
     try {
       await toggleFavoriteSnippet(snippet.id, newState)
+      toast.success(newState ? "Added to favorites" : "Removed from favorites", {
+        position: "bottom-center"
+      })
     } catch (error) {
       console.error("Failed to toggle favorite", error)
       setIsFavorite(!newState) // Revert on failure
+      toast.error("Failed to update favorites")
     }
   }
 
@@ -100,14 +111,15 @@ export function SnippetCard({ snippet }: { snippet: Snippet }) {
               padding: 0;
             }
           `}</style>
-          <pre 
-            className="text-sm font-mono text-gray-300 line-clamp-5 whitespace-pre-wrap break-all prism-preview"
-            dangerouslySetInnerHTML={{ 
-              __html: Prism.languages[snippet.language.toLowerCase()] 
-                ? Prism.highlight(snippet.code, Prism.languages[snippet.language.toLowerCase()] || Prism.languages.javascript, snippet.language.toLowerCase())
-                : snippet.code 
-            }}
-          />
+          <pre className="text-sm font-mono text-gray-300 line-clamp-5 whitespace-pre-wrap break-all prism-preview">
+            {Prism.languages[snippet.language.toLowerCase()] ? (
+              <code dangerouslySetInnerHTML={{ 
+                __html: Prism.highlight(snippet.code, Prism.languages[snippet.language.toLowerCase()], snippet.language.toLowerCase())
+              }} />
+            ) : (
+              <code>{snippet.code}</code>
+            )}
+          </pre>
           {/* Gradient fade out effect */}
           <div className="absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-[#1d1f21] to-transparent" />
         </div>
@@ -136,10 +148,11 @@ export function SnippetCard({ snippet }: { snippet: Snippet }) {
             <Edit2 className="w-4 h-4" />
           </button>
           
-          <AlertDialog>
+          <AlertDialog open={isAlertOpen} onOpenChange={setIsAlertOpen}>
             <AlertDialogTrigger 
               className="p-1.5 rounded-md text-gray-400 hover:text-red-400 hover:bg-red-400/10 transition-colors"
               title="Delete"
+              onClick={() => setIsAlertOpen(true)}
             >
               <Trash2 className="w-4 h-4" />
             </AlertDialogTrigger>
@@ -147,16 +160,17 @@ export function SnippetCard({ snippet }: { snippet: Snippet }) {
               <AlertDialogHeader>
                 <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
                 <AlertDialogDescription className="text-gray-400">
-                  This action cannot be undone. This will permanently delete your snippet "{snippet.title}" from our servers.
+                  This action cannot be undone. This will permanently delete your snippet &quot;{snippet.title}&quot; from our servers.
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
-                <AlertDialogCancel className="bg-white/5 border-white/10 text-white hover:bg-white/10 hover:text-white">Cancel</AlertDialogCancel>
+                <AlertDialogCancel onClick={() => setIsAlertOpen(false)} className="bg-white/5 border-white/10 text-white hover:bg-white/10 hover:text-white">Cancel</AlertDialogCancel>
                 <AlertDialogAction 
                   onClick={handleDelete}
-                  className="bg-red-500 text-white hover:bg-red-600"
+                  disabled={isDeleting}
+                  className="bg-red-500 text-white hover:bg-red-600 disabled:opacity-50"
                 >
-                  Delete
+                  {isDeleting ? "Deleting..." : "Delete"}
                 </AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>

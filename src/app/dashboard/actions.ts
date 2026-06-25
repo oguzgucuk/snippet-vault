@@ -3,6 +3,17 @@
 import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
 import { generateTags, generateEmbedding } from "@/lib/ai/gemini"
+import { z } from "zod"
+
+// Zod schema for snippets
+const snippetSchema = z.object({
+  title: z.string().min(1, "Title is required").max(100, "Title is too long"),
+  code: z.string().min(1, "Code is required").max(10000, "Code is too long"),
+  language: z.enum([
+    "typescript", "javascript", "react", "python", "css", "html", "sql", "bash"
+  ], { errorMap: () => ({ message: "Unsupported language" }) }),
+  tags: z.string().optional(),
+})
 
 export async function createSnippet(formData: FormData) {
   const supabase = await createClient()
@@ -12,15 +23,20 @@ export async function createSnippet(formData: FormData) {
     throw new Error("Unauthorized")
   }
 
-  const title = formData.get("title") as string
-  const code = formData.get("code") as string
-  const language = formData.get("language") as string
-  const tagsString = formData.get("tags") as string
-  const autoTag = formData.get("autoTag") === "on" // "on" is the value for checked checkbox
+  // Zod Validation
+  const validatedFields = snippetSchema.safeParse({
+    title: formData.get("title"),
+    code: formData.get("code"),
+    language: formData.get("language"),
+    tags: formData.get("tags"),
+  })
 
-  if (!title || !code || !language) {
-    throw new Error("Missing required fields")
+  if (!validatedFields.success) {
+    throw new Error(`Validation failed: ${validatedFields.error.message}`)
   }
+
+  const { title, code, language, tags: tagsString } = validatedFields.data
+  const autoTag = formData.get("autoTag") === "on"
 
   let tags: string[] = []
   if (tagsString) {
@@ -28,14 +44,24 @@ export async function createSnippet(formData: FormData) {
   }
 
   if (autoTag) {
-    const aiTags = await generateTags(code, language)
-    // Merge manual and AI tags, ensuring uniqueness using Set
-    tags = Array.from(new Set([...tags, ...aiTags]))
+    try {
+      const aiTags = await generateTags(code, language)
+      tags = Array.from(new Set([...tags, ...aiTags]))
+    } catch (error) {
+      console.warn("AI Tagging failed, proceeding with manual tags", error)
+    }
   }
 
   // Generate embedding for semantic search
   const textToEmbed = `Title: ${title}\nLanguage: ${language}\nTags: ${tags.join(", ")}\n\nCode:\n${code}`
-  const embedding = await generateEmbedding(textToEmbed)
+  let embedding = null
+  try {
+    embedding = await generateEmbedding(textToEmbed)
+    if (!embedding) throw new Error("Null embedding returned")
+  } catch (error) {
+    console.error("Embedding generation failed", error)
+    throw new Error("AI embedding failed. Please try again later.")
+  }
 
   const { error } = await supabase
     .from("snippets")
@@ -78,14 +104,19 @@ export async function updateSnippet(id: string, formData: FormData) {
     throw new Error("Unauthorized")
   }
 
-  const title = formData.get("title") as string
-  const code = formData.get("code") as string
-  const language = formData.get("language") as string
-  const tagsString = formData.get("tags") as string
+  // Zod Validation
+  const validatedFields = snippetSchema.safeParse({
+    title: formData.get("title"),
+    code: formData.get("code"),
+    language: formData.get("language"),
+    tags: formData.get("tags"),
+  })
 
-  if (!title || !code || !language) {
-    throw new Error("Missing required fields")
+  if (!validatedFields.success) {
+    throw new Error(`Validation failed: ${validatedFields.error.message}`)
   }
+
+  const { title, code, language, tags: tagsString } = validatedFields.data
 
   let tags: string[] = []
   if (tagsString) {
@@ -94,18 +125,30 @@ export async function updateSnippet(id: string, formData: FormData) {
 
   // Generate new embedding
   const textToEmbed = `Title: ${title}\nLanguage: ${language}\nTags: ${tags.join(", ")}\n\nCode:\n${code}`
-  const embedding = await generateEmbedding(textToEmbed)
+  let embedding = null
+  try {
+    embedding = await generateEmbedding(textToEmbed)
+  } catch (error) {
+    console.warn("Embedding update failed, keeping old embedding", error)
+  }
+
+  // Update object construction
+  const updateData: Record<string, unknown> = {
+    title,
+    code,
+    language,
+    tags,
+    updated_at: new Date().toISOString(),
+  }
+  
+  // Only update embedding if generation succeeded (Null-guard for updates)
+  if (embedding) {
+    updateData.embedding = embedding
+  }
 
   const { error } = await supabase
     .from("snippets")
-    .update({
-      title,
-      code,
-      language,
-      tags,
-      embedding,
-      updated_at: new Date().toISOString(),
-    })
+    .update(updateData)
     .eq("id", id)
 
   if (error) {
@@ -131,6 +174,8 @@ export async function toggleFavoriteSnippet(id: string, isFavorite: boolean) {
 }
 
 export async function searchSemanticSnippets(query: string) {
+  if (!query || query.trim() === "") return []
+  
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
@@ -138,17 +183,19 @@ export async function searchSemanticSnippets(query: string) {
     throw new Error("Unauthorized")
   }
 
-  // Generate embedding for the search query
-  const queryEmbedding = await generateEmbedding(query)
-  if (!queryEmbedding) {
-    throw new Error("Failed to generate embedding for query")
+  let queryEmbedding = null
+  try {
+    queryEmbedding = await generateEmbedding(query)
+    if (!queryEmbedding) throw new Error("Null embedding")
+  } catch (error) {
+    console.error("Failed to generate search embedding", error)
+    throw new Error("Semantic search is temporarily unavailable")
   }
 
-  // Call the match_snippets RPC function we created in Supabase
   const { data, error } = await supabase.rpc("match_snippets", {
     query_embedding: queryEmbedding,
-    match_threshold: 0.1, // Lower threshold to find more results
-    match_count: 5 // Return top 5 best matches
+    match_threshold: 0.1,
+    match_count: 5
   })
 
   if (error) {

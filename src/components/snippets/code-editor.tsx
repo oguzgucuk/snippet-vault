@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useEffect } from "react"
+import React from "react"
 import Editor from "react-simple-code-editor"
 import Prism from "prismjs"
 
@@ -22,10 +22,9 @@ interface CodeEditorProps {
   onChange: (val: string) => void
   language: string
   name?: string
-  placeholder?: string
 }
 
-export function CodeEditor({ value, onChange, language, name, placeholder }: CodeEditorProps) {
+export function CodeEditor({ value, onChange, language, name }: CodeEditorProps) {
   // Map our simple language names to Prism grammar names
   const getGrammar = (lang: string) => {
     switch (lang.toLowerCase()) {
