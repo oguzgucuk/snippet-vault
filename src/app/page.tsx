@@ -53,7 +53,7 @@ export default function Home() {
                 <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" />
               </Button>
             </Link>
-            <a href="https://github.com" target="_blank" rel="noopener noreferrer">
+            <a href="https://github.com/oguzgucuk/snippet-vault" target="_blank" rel="noopener noreferrer">
               <Button variant="outline" className="h-12 px-8 rounded-full bg-white/5 border-white/10 hover:bg-white/10 hover:text-white text-base">
                 <Terminal className="w-5 h-5 mr-2" />
                 Star on GitHub
